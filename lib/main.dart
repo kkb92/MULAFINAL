@@ -9,8 +9,9 @@ class Player {
   int points;
   bool isSelectable;
   bool isVisible; // Neue Eigenschaft für den Sichtbarkeitsstatus
+  int totalPoints; // Hinzugefügte Eigenschaft für die Gesamtpunktzahl
 
-  Player(this.name, this.points, this.isSelectable, {this.isVisible = true});
+  Player(this.name, this.points, this.isSelectable, {this.isVisible = true, this.totalPoints = 0});
 }
 
 class PointsOption {
@@ -193,6 +194,8 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
   int roundNumber = 1;
   List<RoundResult> roundResults = [];
   String? selectedValue;
+  int currentRound = 1; // Hinzugefügte Variable für die Rundenanzeige
+
 
   List<PointsOption> pointsOptions = [
     PointsOption('-5', -5),
@@ -248,6 +251,51 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
     return sortedTotalPointsPerPlayer;
   }
 
+  void _editPoints(Player player) async {
+    TextEditingController controller = TextEditingController();
+    controller.text = player.points.toString();
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Punktestand bearbeiten"),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(labelText: "Neuer Punktestand"),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(); // Schließe den Dialog
+              },
+              child: Text("Abbrechen"),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                // Überprüfe, ob die Eingabe gültig ist
+                if (controller.text.isNotEmpty) {
+                  int newPoints = int.parse(controller.text);
+                  setState(() {
+                    player.points = newPoints;
+                    // Optional: Füge hier die Aktualisierung der Gesamtpunktzahl hinzu
+                  });
+                }
+                Navigator.of(context).pop(); // Schließe den Dialog
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: Text("Speichern"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void resetPoints() {
     setState(() {
       for (var player in widget.players) {
@@ -278,9 +326,11 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       // Multiplikator auf x1 zurücksetzen
       selectedMultiplier = pointsMultipliers[0];
       selectedValue = 'x${selectedMultiplier!.multiplier}';
+
+      // Rundenanzahl zurücksetzen
+      currentRound = 1;
     });
   }
-
 
   void showRoundResults() {
     showDialog(
@@ -401,10 +451,19 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   ),
                   child: Text('OK'),
                 ),
+                SizedBox(height: 10.0), // Platz für die Rundenanzahl
+                Text(
+                  'Aktuelle Runde: $currentRound',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
               ],
             ),
           ),
         );
+        currentRound++;
       },
     );
   }
@@ -486,12 +545,15 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       selectedValue = 'x${selectedMultiplier!.multiplier}';
     });
 
-    // Check if any player's points reach 0 or fall below
+    // Überprüfen, ob ein Spieler 0 Punkte oder weniger hat
     bool anyPlayerBelowZero = widget.players.any((player) => player.points <= 0);
 
-    // Trigger the endRound function if needed
+    // Trigger die endRound-Funktion und aktualisiere die Rundenanzahl
     if (anyPlayerBelowZero) {
       endRound();
+      setState(() {
+        currentRound++;
+      });
     }
   }
 
@@ -517,12 +579,15 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       selectedValue = 'x${selectedMultiplier!.multiplier}';
     });
 
-    // Check if any player's points reach 0 or fall below
+    // Überprüfen, ob ein Spieler 0 Punkte oder weniger hat
     bool anyPlayerBelowZero = widget.players.any((player) => player.points <= 0);
 
-    // Trigger the endRound function if needed
+    // Trigger die endRound-Funktion und aktualisiere die Rundenanzahl
     if (anyPlayerBelowZero) {
       endRound();
+      setState(() {
+        currentRound++;
+      });
     }
   }
 
@@ -532,7 +597,7 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       appBar: AppBar(
         title: Row(
           children: [
-            Text('WELI - RECHNER'),
+            Text('W E L I'),
             Spacer(),
             ElevatedButton(
               onPressed: () {
@@ -543,7 +608,7 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(0.0),
-                  side: BorderSide(color: Colors.black),  // Fügen Sie diese Zeile hinzu
+                  side: BorderSide(color: Colors.black),
                 ),
               ),
               child: Text('PUNKTESTAND'),
@@ -554,7 +619,18 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          SizedBox(height: 30),  // Fügen Sie einen leeren Raum oben hinzu
+          // Hinzugefügte Anzeige der aktuellen Rundenanzahl
+          Padding(
+            padding: EdgeInsets.all(8.0),
+            child: Text(
+              'Runde: $currentRound',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
           Expanded(
             child: GridView.builder(
               shrinkWrap: true,
@@ -569,7 +645,6 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                 Player currentPlayer = widget.players[index];
                 bool isSelected = selectedPlayer == currentPlayer;
 
-                // Check if the player is visible before creating them in the GridView
                 if (currentPlayer.isVisible) {
                   return IgnorePointer(
                     ignoring: !currentPlayer.isVisible,
@@ -590,7 +665,9 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                                 color: Colors.black,
                                 width: 1.0,
                               ),
-                              color: isSelected ? Colors.blue.withOpacity(0.3) : Colors.transparent,
+                              color: isSelected
+                                  ? Colors.blue.withOpacity(0.3)
+                                  : Colors.transparent,
                               borderRadius: BorderRadius.circular(0.0),
                             ),
                             child: Stack(
@@ -602,17 +679,23 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Text(
-                                          '${currentPlayer.points}',
-                                          style: TextStyle(
-                                            color: Colors.black,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 30,
+                                        GestureDetector(
+                                          onTap: () {
+                                            // Hier wird der Dialog zum Bearbeiten des Punktestands geöffnet
+                                            _editPoints(currentPlayer);
+                                          },
+                                          child: Text(
+                                            '${currentPlayer.points}',
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 30,
+                                            ),
                                           ),
                                         ),
                                         SizedBox(height: 4),
                                         Text(
-                                          '${calculateTotalPointsPerPlayer()[currentPlayer.name]}', // Anzeige des Gesamtpunktestands
+                                          '${calculateTotalPointsPerPlayer()[currentPlayer.name]}',
                                           style: TextStyle(
                                             color: Colors.black,
                                             fontSize: 16,
@@ -685,13 +768,11 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                     ),
                   );
                 } else {
-                  // Return a container for the case where the player is not visible (hidden)
                   return Container();
                 }
               },
             ),
           ),
-
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
@@ -699,20 +780,22 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                 onPressed: () {
                   _showMultiplierMenu(context);
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedMultiplier != null ? Colors.blue[200] : Colors.grey[300],
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(0.0),
-                    side: BorderSide(color: Colors.black),  // Fügen Sie diese Zeile hinzu
-                  ),
-                ),
-                icon: Container(),  // Verwenden Sie ein leeres Container für das Icon
+                icon: Container(),
                 label: Text(
                   selectedMultiplier != null
                       ? 'x${selectedMultiplier!.multiplier}'
                       : '*',
                   style: TextStyle(fontSize: 20),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedMultiplier != null
+                      ? Colors.blue[200]
+                      : Colors.grey[300],
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
+                  ),
                 ),
               ),
               ElevatedButton(
@@ -720,40 +803,42 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   _applyMPlus();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedMultiplier != null ? Colors.redAccent : Colors.redAccent[300],
+                  backgroundColor: selectedMultiplier != null
+                      ? Colors.redAccent
+                      : Colors.redAccent[300],
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
                     side: BorderSide(color: Colors.black),
                   ),
                 ),
-                child: Text('M+',
-                  style: TextStyle(fontSize: 20), // Hier die Schriftgröße ändern
+                child: Text(
+                  'M+',
+                  style: TextStyle(fontSize: 20),
                 ),
               ),
-
-
               ElevatedButton(
                 onPressed: () {
                   _applyMMinus();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedMultiplier != null ? Colors.green : Colors.green[300],
+                  backgroundColor: selectedMultiplier != null
+                      ? Colors.green
+                      : Colors.green[300],
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
                     side: BorderSide(color: Colors.black),
                   ),
                 ),
-                child: Text('M-',
-                  style: TextStyle(fontSize: 20), // Hier die Schriftgröße ändern
+                child: Text(
+                  'M-',
+                  style: TextStyle(fontSize: 20),
                 ),
               ),
             ],
           ),
-
-          SizedBox(height: 30),  // Fügen Sie einen leeren Raum zwischen den Buttons und dem unteren Bildschirmrand hinzu
-
+          SizedBox(height: 30),
           Wrap(
             spacing: 8.0,
             runSpacing: 8.0,
@@ -765,12 +850,14 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedPointsOption?.label == '-1' ? Colors.blue[200] : Colors.white,
+                  backgroundColor: selectedPointsOption?.label == '-1'
+                      ? Colors.blue[200]
+                      : Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
                   ),
-                  side: BorderSide(color: Colors.black),  // Füge einen schwarzen Rahmen hinzu
                 ),
                 child: Text(
                   '-1',
@@ -784,12 +871,14 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedPointsOption?.label == '-2' ? Colors.blue[200] : Colors.white,
+                  backgroundColor: selectedPointsOption?.label == '-2'
+                      ? Colors.blue[200]
+                      : Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
                   ),
-                  side: BorderSide(color: Colors.black),  // Füge einen schwarzen Rahmen hinzu
                 ),
                 child: Text(
                   '-2',
@@ -803,12 +892,14 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedPointsOption?.label == '-3' ? Colors.blue[200] : Colors.white,
+                  backgroundColor: selectedPointsOption?.label == '-3'
+                      ? Colors.blue[200]
+                      : Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
                   ),
-                  side: BorderSide(color: Colors.black),  // Füge einen schwarzen Rahmen hinzu
                 ),
                 child: Text(
                   '-3',
@@ -822,12 +913,14 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedPointsOption?.label == '-4' ? Colors.blue[200] : Colors.white,
+                  backgroundColor: selectedPointsOption?.label == '-4'
+                      ? Colors.blue[200]
+                      : Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
                   ),
-                  side: BorderSide(color: Colors.black),  // Füge einen schwarzen Rahmen hinzu
                 ),
                 child: Text(
                   '-4',
@@ -841,12 +934,14 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: selectedPointsOption?.label == '-5' ? Colors.blue[200] : Colors.white,
+                  backgroundColor: selectedPointsOption?.label == '-5'
+                      ? Colors.blue[200]
+                      : Colors.white,
                   foregroundColor: Colors.black,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(0.0),
+                    side: BorderSide(color: Colors.black),
                   ),
-                  side: BorderSide(color: Colors.black),  // Füge einen schwarzen Rahmen hinzu
                 ),
                 child: Text(
                   '-5',
@@ -855,12 +950,9 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
               ),
             ],
           ),
-
-          SizedBox(height: 30),  // Abstand zwischen den Zahlenbuttons und den Anwenderbuttons
-
-
+          SizedBox(height: 30),
           Padding(
-            padding: EdgeInsets.only(bottom: 16.0, top: 8.0),  // Fügen Sie unten und oben Platz hinzu
+            padding: EdgeInsets.only(bottom: 16.0, top: 8.0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -869,7 +961,8 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                     if (selectedPlayer != null &&
                         selectedPointsOption != null &&
                         selectedMultiplier != null) {
-                      _applyPointsToPlayer(selectedPlayer!, selectedPointsOption!.value);
+                      _applyPointsToPlayer(
+                          selectedPlayer!, selectedPointsOption!.value);
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -877,7 +970,7 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(0.0),
-                      side: BorderSide(color: Colors.black),  // Fügen Sie diese Zeile hinzu
+                      side: BorderSide(color: Colors.black),
                     ),
                   ),
                   child: Text('ÜBERNEHMEN'),
@@ -885,13 +978,16 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                 ElevatedButton(
                   onPressed: () {
                     endRound();
+                    setState(() {
+                      currentRound++;
+                    });
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.grey[300],
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(0.0),
-                      side: BorderSide(color: Colors.black),  // Fügen Sie diese Zeile hinzu
+                      side: BorderSide(color: Colors.black),
                     ),
                   ),
                   child: Text('NEUE RUNDE'),
@@ -905,7 +1001,7 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(0.0),
-                      side: BorderSide(color: Colors.black),  // Fügen Sie diese Zeile hinzu
+                      side: BorderSide(color: Colors.black),
                     ),
                   ),
                   child: Icon(Icons.refresh),
@@ -917,6 +1013,7 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       ),
     );
   }
+
 
   void _confirmNewRound() {
     showDialog(
@@ -1042,8 +1139,17 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
       setState(() {
         player.points += points * selectedMultiplier!.multiplier;
         calculatedPoints = player.points;
+
+        // Stelle sicher, dass kein Spieler unter 0 Punkte fällt
+        if (player.points < 0) {
+          player.points = 0;
+        }
+
         player.isVisible = false; // Spieler ausblenden
       });
+
+      // Aktualisiere die Gesamtpunktzahl des Spielers
+      updateTotalPoints(player);
 
       // Überprüfe, ob alle Spieler ausgeblendet sind
       if (widget.players.every((player) => !player.isVisible)) {
@@ -1061,6 +1167,25 @@ class _PlayersTablePageState extends State<PlayersTablePage> {
     }
   }
 
+  void updateTotalPoints(Player player) {
+    // Aktualisiere die Gesamtpunktzahl des Spielers
+    Map<String, int> totalPointsPerPlayer = calculateTotalPointsPerPlayer();
+    int totalPoints = totalPointsPerPlayer[player.name] ?? 0;
+    totalPoints += calculatedPoints;
+
+    // Stelle sicher, dass keine Minuspunkte für die Gesamtpunktzahl angezeigt werden
+    totalPoints = totalPoints < 0 ? 0 : totalPoints;
+
+    totalPointsPerPlayer[player.name] = totalPoints;
+
+    // Setze die Gesamtpunktzahl für jeden Spieler neu
+    setState(() {
+      totalPointsPerPlayer = totalPointsPerPlayer;
+
+      // Hier wird der aktuelle Punktestand zum totalPoints der Spieler hinzugefügt
+      player.totalPoints = totalPoints;
+    });
+  }
 
 
   void _showMultiplierMenu(BuildContext context) {
